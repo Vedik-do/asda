@@ -1,0 +1,49 @@
+name: Build (Forge 1.20.1)
+
+on:
+  push:
+    branches: ["main", "master"]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      # GitHub runners already include Gradle; this action mainly adds caching + nicer defaults. :contentReference[oaicite:0]{index=0}
+      - name: Set up Gradle (cache)
+        uses: gradle/actions/setup-gradle@v3
+
+      - name: Detect project folder
+        id: proj
+        shell: bash
+        run: |
+          if [[ -f "build.gradle" || -f "build.gradle.kts" ]]; then
+            echo "dir=." >> "$GITHUB_OUTPUT"
+          elif [[ -f "MowzieOverhauledMusicCompat/build.gradle" || -f "MowzieOverhauledMusicCompat/build.gradle.kts" ]]; then
+            echo "dir=MowzieOverhauledMusicCompat" >> "$GITHUB_OUTPUT"
+          else
+            echo "ERROR: Could not find build.gradle" >&2
+            ls -la
+            exit 1
+          fi
+
+      - name: Build
+        working-directory: ${{ steps.proj.outputs.dir }}
+        run: gradle clean build --no-daemon
+
+      - name: Upload JAR
+        uses: actions/upload-artifact@v4
+        with:
+          name: mowzie-overhauledmusic-compat-jar
+          path: ${{ steps.proj.outputs.dir }}/build/libs/*.jar
+          if-no-files-found: error
